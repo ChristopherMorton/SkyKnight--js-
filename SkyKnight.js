@@ -1,5 +1,5 @@
 document.write( "Starto?" );
-$('p').text( "~0" );
+
 var canvas = $("#SK_canvas");
 var context = canvas[0].getContext( '2d' );
 
@@ -8,7 +8,9 @@ const HEIGHT = 15;
 
 const TILE_DIM = 40;
 
-$('p').text( "~1" );
+//////////////////////////////////////////////////////////////
+// #1 First, object definitions
+//////////////////////////////////////////////////////////////
 
 var NoObject = {
    blocks: false,
@@ -20,8 +22,6 @@ var NoObject = {
    Draw: function( x, y ) { return; },
    Arrowed: function( dir ) { return false; }
 };
-
-$('p').text( "~2" ); 
 
 var EndObject = {
    blocks: false,
@@ -41,8 +41,6 @@ var EndObject = {
 };
 EndObject.image.src = "end.png";
 
-$('p').text( "~3" ); 
-
 function BlockingObject( image_string ) {
    this.blocks = true;
    this.blocksArrows = true;
@@ -60,8 +58,6 @@ function BlockingObject( image_string ) {
 };
 BlockingObject.prototype.Update = function( dt ) { return; };
 BlockingObject.prototype.Arrowed = function( dir ) { return true; };
-
-$('p').text( "~4" ); 
 
 var Boulder = {
    blocks: true,
@@ -81,13 +77,15 @@ var Boulder = {
 };
 Boulder.image.src = "boulder.png";
 
-$('p').text( "~5" ); 
-
 var object_dict = {};
 object_dict[''] = NoObject;
 object_dict['end'] = EndObject;
 object_dict['boulder'] = Boulder;
 object_dict['column'] = new BlockingObject( 'column.png' );
+
+//////////////////////////////////////////////////////////////
+// #2 Second, describe miscellaneous objects
+//////////////////////////////////////////////////////////////
 
 var background = {
    image: new Image( TILE_DIM * WIDTH, TILE_DIM * HEIGHT ),
@@ -99,8 +97,6 @@ var background = {
    Update: function( dt ) { return; }
 };
 background.image.src = "sky.png";
-
-$('p').text( "~6" ); 
 
 var floor_image = new Image( TILE_DIM, TILE_DIM );
 floor_image.src = "floor_tile.png";
@@ -116,26 +112,19 @@ Tile.prototype.Draw = function( x, y ) {
    object_dict[ this.object ].Draw( x, y );
 };
 
-
-$('p').text( "~7" ); 
-
 var mode = "play";
 var level = Array( WIDTH );
 for (var x = 0; x < WIDTH; x++) {
    level[x] = new Array(HEIGHT);
 }
-for (x = 0; x < WIDTH; x++) {
-   for (y = 0; y < HEIGHT; y++) {
-      level[x][y] = new Tile();
+function ClearLevel() {
+   for (var x = 0; x < WIDTH; x++) {
+      for (var y = 0; y < HEIGHT; y++) {
+         level[x][y] = new Tile();
+      }
    }
 }
-// Test level
-level[8][8].floor = 1;
-level[10][9].floor = 1;
-level[12][10].floor = 1;
-level[12][10].object = "end"; // 'end' is a thing- a portal or stairs or some such
-
-$('p').text( "~8" ); 
+ClearLevel();
 
 var player_pos = [8, 8]; // initial position depends on the level, of course
 
@@ -162,7 +151,34 @@ jump_img_up_right.src = "jump_img_up_right.png";
 var partial_move_image = new Image( TILE_DIM, 2*TILE_DIM );
 partial_move_image.src = "partial_move_img.png";
 
-$('p').text( "~9" ); 
+//////////////////////////////////////////////////////////////
+// #3 Here's where we describe all the levels...
+//////////////////////////////////////////////////////////////
+
+var cur_dungeon = 0, cur_level = 0;
+function SetDungeon0Level( level_num ) {
+   // Test level
+   ClearLevel();
+   level[8][8].floor = 1;
+   level[10][9].floor = 1;
+   level[12][10].floor = 1;
+   level[12][10].object = "end";
+}
+
+var dungeons = [
+   SetDungeon0Level//,
+  // SetDungeon1Level
+   ];
+
+function LoadLevel( dungeon_num, level_num ) {
+   if ( dungeon_num >= 0 && dungeon_num < dungeons.size() ) {
+      dungeons[dungeon_num]( level_num );
+   }
+} 
+
+//////////////////////////////////////////////////////////////
+// #4 Finally, game logic
+//////////////////////////////////////////////////////////////
 
 function DrawPlayer() {
    if (player_img_east.complete) {
@@ -311,6 +327,8 @@ canvas.mousemove( OnMouseMove );
 
 canvas.click( OnMouseMove );
 
+
+LoadLevel( 0, 0 );
 
 DrawLevel();
 
