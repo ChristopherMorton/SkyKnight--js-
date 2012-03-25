@@ -15,6 +15,7 @@ const TILE_DIM = 40;
 var NoObject = {
    blocks: false,
    blocksArrows: false,
+   blocksJumps: false,
    end: false,
    pushable: false,
 
@@ -26,6 +27,7 @@ var NoObject = {
 var EndObject = {
    blocks: false,
    blocksArrows: false,
+   blocksJumps: false,
    end: true,
    pushable: false,
 
@@ -44,6 +46,7 @@ EndObject.image.src = "end.png";
 function BlockingObject( image_string ) {
    this.blocks = true;
    this.blocksArrows = true;
+   this.blocksJumps = true;
    this.end = false;
    this.pushable = false;
 
@@ -62,6 +65,7 @@ BlockingObject.prototype.Arrowed = function( dir ) { return true; };
 var Boulder = {
    blocks: true,
    blocksArrows: true,
+   blocksJumps: false,
    end: false,
    pushable: true,
 
@@ -86,6 +90,8 @@ object_dict['column'] = new BlockingObject( 'column.png' );
 //////////////////////////////////////////////////////////////
 // #2 Second, describe miscellaneous objects
 //////////////////////////////////////////////////////////////
+
+var mode = "play";
 
 var background = {
    image: new Image( TILE_DIM * WIDTH, TILE_DIM * HEIGHT ),
@@ -112,7 +118,6 @@ Tile.prototype.Draw = function( x, y ) {
    object_dict[ this.object ].Draw( x, y );
 };
 
-var mode = "play";
 var level = Array( WIDTH );
 for (var x = 0; x < WIDTH; x++) {
    level[x] = new Array(HEIGHT);
@@ -139,14 +144,30 @@ player_img_north.src = "player_img_north.png";
 
 // [a,b,c] =>
 // a - 0 if no move (self), 1 for arrows/push, 2 for jumps, 3 for half-moves
-// b, c - directions.  0123->NESW.  e.g. [2,2,3] == jump SSW, [1,0,x] == arrow N
-var move_indicator = [ 3, 1, 2 ];
+// b, c - directions. 0123 -> NESW   * new idea?
+// b, c - directions, of form [x, y] with x,y = -1,0, or 1
+// var move_indicator = [ 0, 0, 0 ];
+var move_indicator = [ 0, [-1,0], [0,1] ];
 
 // This image gets flipped and rotated to generate the eight jump images
-var jump_img_up_left = new Image( 2*TILE_DIM, 3*TILE_DIM );
-var jump_img_up_right = new Image( 2*TILE_DIM, 3*TILE_DIM );
-jump_img_up_left.src = "jump_img_up_left.png";
-jump_img_up_right.src = "jump_img_up_right.png";
+var jump_img_up_left1 = new Image( 2*TILE_DIM, 3*TILE_DIM );
+var jump_img_up_left2 = new Image( 2*TILE_DIM, 3*TILE_DIM );
+var jump_img_up_left3 = new Image( 2*TILE_DIM, 3*TILE_DIM );
+var jump_img_up_right1 = new Image( 2*TILE_DIM, 3*TILE_DIM );
+var jump_img_up_right2 = new Image( 2*TILE_DIM, 3*TILE_DIM );
+var jump_img_up_right3 = new Image( 2*TILE_DIM, 3*TILE_DIM );
+jump_img_up_left1.src = "jump_img_up_left1.png";
+jump_img_up_left2.src = "jump_img_up_left2.png";
+jump_img_up_left3.src = "jump_img_up_left3.png";
+jump_img_up_right1.src = "jump_img_up_right1.png";
+jump_img_up_right2.src = "jump_img_up_right2.png";
+jump_img_up_right3.src = "jump_img_up_right3.png";
+
+var jump_img_up_left = [ jump_img_up_left1, jump_img_up_left2, jump_img_up_left3 ];
+var jump_img_up_right = [ jump_img_up_right1, jump_img_up_right2, jump_img_up_right3 ];
+
+var no_go_image = new Image( TILE_DIM, TILE_DIM );
+no_go_image.src = "no_go_image.png";
 
 var partial_move_image = new Image( TILE_DIM, 2*TILE_DIM );
 partial_move_image.src = "partial_move_img.png";
@@ -160,7 +181,13 @@ function SetDungeon0Level( level_num ) {
    // Test level
    ClearLevel();
    level[8][8].floor = 1;
+   level[8][6].object = "column";
+   level[9][6].floor = 1;
+   level[9][8].object = "column";
+   level[9][9].object = "column";
    level[10][9].floor = 1;
+   level[10][7].floor = 1;
+   level[9][10].floor = 1;
    level[12][10].floor = 1;
    level[12][10].object = "end";
 }
@@ -171,7 +198,9 @@ var dungeons = [
    ];
 
 function LoadLevel( dungeon_num, level_num ) {
-   if ( dungeon_num >= 0 && dungeon_num < dungeons.size() ) {
+   if ( dungeon_num >= 0 && dungeon_num < dungeons.length ) {
+$('p').text( "loading level" );
+
       dungeons[dungeon_num]( level_num );
    }
 } 
@@ -193,65 +222,125 @@ function DrawMoveIndicator() {
 
       if (move_indicator[0] == 1) {
          // arrow or push
-         context.fillStyle = "rgba(255, 80, 80, 0.2)";
-         switch (move_indicator[1]) {
-            // For now, just shade it sort of red, a la checkers
-            case 0:
-               while ( y >= 0 && object_dict[ level[x][y].object ].blocksArrows == 0 ) {
-                  context.fillRect( TILE_DIM*(x + 0.3), TILE_DIM*(y - 0.5), TILE_DIM*0.4, TILE_DIM );
-                  --y;
-               }
-               break; 
-            case 1:
-               while ( x < WIDTH && object_dict[ level[x][y].object ].blocksArrows == 0 ) {
-                  context.fillRect( TILE_DIM*(x + 0.5), TILE_DIM*(y + 0.3), TILE_DIM, TILE_DIM*0.4 );
-                  ++x;
-               }
-               break;
-            case 2:
-               while ( y < HEIGHT && object_dict[ level[x][y].object ].blocksArrows == 0 ) {
-                  context.fillRect( TILE_DIM*(x + 0.3), TILE_DIM*(y + 0.5), TILE_DIM*0.4, TILE_DIM );
-                  ++y;
-               }
-               break; 
-            case 3:
-               while ( x >= 0 && object_dict[ level[x][y].object ].blocksArrows == 0 ) {
-                  context.fillRect( TILE_DIM*(x - 0.5), TILE_DIM*(y + 0.3), TILE_DIM, TILE_DIM*0.4 );
-                  --x;
-               }
-               break;
+         context.strokeStyle = "rgba(255, 80, 80, 0.8)";
+         context.fillStyle = "rgb(255, 80, 80)";
+         
+         while ( y >= 0 && y < HEIGHT && x >= 0 && x < WIDTH
+                 && object_dict[ level[x][y].object ].blocksArrows == 0 ) {
+            x += move_indicator[1][0];
+            y += move_indicator[1][1];
          }
+
+         context.beginPath();
+         context.moveTo( TILE_DIM*( player_pos[0] + 0.5 ), TILE_DIM*( player_pos[1] + 0.5 ) );
+         context.lineTo( TILE_DIM*( x + 0.5 ), TILE_DIM*( y + 0.5 ) );
+         context.closePath();
+         context.stroke();
+         // Include an arrow somehow? 
       }
       else if (move_indicator[0] == 2)
       {
          // Jump!
-         var jump_image, j_point;
-         if( ( move_indicator[1] - move_indicator[2] + 4) % 4 == 1) { // left turn
-            jump_image = jump_img_up_left;
-            j_point = -1.5*TILE_DIM;
-         } else if( ( move_indicator[1] - move_indicator[2] + 4) % 4 == 3) { // right turn
-            jump_image = jump_img_up_right;
-            j_point = -0.5*TILE_DIM;
-         } else {
-            // invalid jump
+         // First, is the jump possible?
+         var target = [ player_pos[0] + (2* move_indicator[1][0]) + move_indicator[2][0],
+                        player_pos[1] + (2* move_indicator[1][1]) + move_indicator[2][1] ];
+         if ( target[0] < 0 || target[0] >= WIDTH || target[1] < 0 || target[1] >= HEIGHT ) {
+            // Off screen
             return;
          }
+         var target_location = level[ target[0] ][ target[1] ];
+         if ( target_location.floor == false || object_dict[ target_location.object ].blocks ) {
+            // Can't jump to here
+            context.drawImage( no_go_image, TILE_DIM*target[0], TILE_DIM*target[1] );
+            return;
+         } 
 
-         // Now rotate
-         var angle = move_indicator[1] * Math.PI/2;
-         context.translate( TILE_DIM*(x+0.5), TILE_DIM*(y+0.5) );
-         context.rotate( angle );
+         // Now check is there's anything in the way...
+         var turn_point = 0;
+         var blockers = [];
+         var step_one = [player_pos[0] + move_indicator[1][0],
+                         player_pos[1] + move_indicator[1][1]];
+         var step_two = [step_one[0] + move_indicator[1][0],
+                         step_one[1] + move_indicator[1][1]];
 
-         context.drawImage( jump_image, j_point, -2.5*TILE_DIM, 2*TILE_DIM, 3*TILE_DIM );
-         //Reset context
-         context.rotate( -angle );
-         context.translate( -TILE_DIM*(x+0.5), -TILE_DIM*(y+0.5) );
+         if ( object_dict[ level[step_one[0]][step_one[1]].object ].blocksJumps ) {
+            // First dir 1 step blocked
+            turn_point = 1;
+            blockers[ blockers.length ] = step_one;
+            step_one = [player_pos[0] + move_indicator[2][0],
+                        player_pos[1] + move_indicator[2][1]];
+            step_two = [step_one[0] + move_indicator[1][0],
+                        step_one[1] + move_indicator[1][1]];
+
+            if ( object_dict[ level[step_one[0]][step_one[1]].object ].blocksJumps ) {
+               // dir 2 step blocked
+
+               blockers[ blockers.length ] = step_one;
+               turn_point = 0;
+            } else if ( object_dict[ level[step_two[0]][step_two[1]].object ].blocksJumps ) { 
+               // next dir 1 step blocked
+
+               blockers[ blockers.length ] = step_two;
+               turn_point = 0;
+            }
+         } else if ( object_dict[ level[step_two[0]][step_two[1]].object ].blocksJumps ) {
+            // Second dir 1 step blocked
+            turn_point = 2;
+            step_two = [step_one[0] + move_indicator[2][0],
+                        step_one[1] + move_indicator[2][1]];
+
+            if ( object_dict[ level[step_two[0]][step_two[1]].object ].blocksJumps ) { 
+               // dir 2 step blocked
+
+               blockers[ blockers.length ] = step_two;
+               turn_point = 0;
+            }
+         } else {
+            turn_point = 3;
+         }
+         
+         if (turn_point == 0) {
+            // Shade blocking tiles
+            context.fillStyle = "rgba(255,0,0,0.3)";
+            for (var i = 0; i < blockers.length; ++i) {
+               context.fillRect( blockers[i][0]*TILE_DIM, blockers[i][1]*TILE_DIM, TILE_DIM, TILE_DIM );
+            }
+            context.drawImage( no_go_image, TILE_DIM*target[0], TILE_DIM*target[1] );
+
+         } else { 
+            // Get the imagery required
+            var jump_image, j_point;
+            if( ( move_indicator[1][0] == 0 && move_indicator[1][1] == move_indicator[2][0] ) ||
+                ( move_indicator[1][1] == 0 && move_indicator[1][0] == -move_indicator[2][1] ) ) {
+               // Left turn
+               jump_image = jump_img_up_left[ turn_point-1 ];
+               j_point = -1.5*TILE_DIM;
+            } else  {
+               // Right turn
+               jump_image = jump_img_up_right[ turn_point-1 ];
+               j_point = -0.5*TILE_DIM;
+            }
+
+            // Now rotate and draw
+            var angle = (  (move_indicator[1][0] == 0)?
+                           (  (move_indicator[1][1] == 1)? 1:0 ):
+                           (  (move_indicator[1][0] == 1)? 0.5:1.5 )  ) * Math.PI ;
+            context.translate( TILE_DIM*(x+0.5), TILE_DIM*(y+0.5) );
+            context.rotate( angle );
+
+            context.drawImage( jump_image, j_point, -2.5*TILE_DIM, 2*TILE_DIM, 3*TILE_DIM );
+
+            //Reset context
+            context.rotate( -angle );
+            context.translate( -TILE_DIM*(x+0.5), -TILE_DIM*(y+0.5) );
+         }
       } 
       else if (move_indicator[0] == 3)
       {
-$('p').text( "~partial" ); 
          // Partial move submitted
-         var angle = move_indicator[1] * Math.PI/2;
+         var angle = (  (move_indicator[1][0] == 0)?
+                        (  (move_indicator[1][1] == 1)? 1:0 ):
+                        (  (move_indicator[1][0] == 1)? 0.5:1.5 )  ) * Math.PI ;
          context.translate( TILE_DIM*(x+0.5), TILE_DIM*(y+0.5) );
          context.rotate( angle );
 
@@ -290,11 +379,11 @@ function OnMouseMove( e ) {
          move_indicator[0] = 0;
       } else {
          move_indicator[0] = 1;
-         move_indicator[1] = (dy < 0)?0:2;
+         move_indicator[1] = (dy < 0)?[0,-1]:[0,1];
       }
    } else if (y == player_pos[1]) {
       move_indicator[0] = 1;
-      move_indicator[1] = (dx < 0)?3:1;
+      move_indicator[1] = (dx < 0)?[-1,0]:[1,0];
    } else {
       move_indicator[0] = 2;
       var diag1 = (dx - dy); // dividing line (==0) looks like this: \
@@ -302,34 +391,39 @@ function OnMouseMove( e ) {
 
       if ( dx > dy ) {
          if ( dx < -dy ) {
-            move_indicator[1] = 0;
-            move_indicator[2] = (dx < 0)?3:1;
+            move_indicator[1] = [0, -1];
+            move_indicator[2] = (dx < 0)?[-1,0]:[1,0];
          } else {
-            move_indicator[1] = 1;
-            move_indicator[2] = (dy < 0)?0:2; 
+            move_indicator[1] = [1,0];
+            move_indicator[2] = (dy < 0)?[0,-1]:[0,1]; 
          }
       } else {
          if ( dx < -dy ) {
-            move_indicator[1] = 3;
-            move_indicator[2] = (dy < 0)?0:2; 
+            move_indicator[1] = [-1,0];
+            move_indicator[2] = (dy < 0)?[0,-1]:[0,1]; 
          } else {
-            move_indicator[1] = 2;
-            move_indicator[2] = (dx < 0)?3:1;
+            move_indicator[1] = [0,1];
+            move_indicator[2] = (dx < 0)?[-1,0]:[1,0];
          }
       }
    }
-$('p').text( "~new_indicator: [" + move_indicator[0] + "," + move_indicator[1] + "," + move_indicator[2] + "]<br/>x_pix= " + x_pix + ", y_pix= " + y_pix); 
+$('p').html( "~new_indicator: [" + move_indicator[0] + ",[" + move_indicator[1][0] + "," + move_indicator[1][1] + "],[" + move_indicator[2][0] + "," + move_indicator[2][1] + "]]<br/>x_pix= " + x_pix + ", y_pix= " + y_pix); 
    DrawLevel();
 }
 
+function OnClick( e ) {
+   return;
+}
 
 canvas.mousemove( OnMouseMove ); 
 
-canvas.click( OnMouseMove );
-
+//canvas.click( OnClick );
 
 LoadLevel( 0, 0 );
 
 DrawLevel();
+
+$('p').text( "success" );
+document.write( "Endo?" );
 
 //SetInterval( UpdateAll, 30 );
