@@ -14,7 +14,7 @@ doesn't support Javascript or you have it turned off.
 To play this game, please use
 a Javascript enabled browser.</noscript>
 
-   <canvas id="SK_canvas" width="800" height="600"></canvas>
+   <canvas id="SK_canvas" width="800" height="620"></canvas>
 
 <p>*Copyright notice goes here</p>
 
